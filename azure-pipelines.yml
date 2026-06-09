@@ -1,0 +1,70 @@
+# Deploy tunnel-dashboard
+trigger:
+  branches:
+    include: [main]
+
+variables:
+  - group: devgiglio-env
+  - group: devgiglio-secrets
+  - group: envs-cloudflare
+  - name: APP_NAME
+    value: tunnel-dashboard
+  - name: IMAGE
+    value: ghcr.io/gipierogiglio-prog/tunnel-dashboard
+  - name: COMPOSE_DIR
+    value: /opt/devgiglio
+  - name: CONTAINER_PORT
+    value: "3011"
+
+pool: Default
+
+stages:
+  - stage: Build
+    displayName: "🔨 Build"
+    jobs:
+      - job: BuildJob
+        steps:
+          - bash: |
+              echo "Logging in to GHCR..."
+              echo $(GITHUB_TOKEN) | docker login ghcr.io -u gipierogiglio-prog --password-stdin
+            displayName: "Login GHCR"
+          - bash: |
+              docker build -t $(IMAGE):build-$(Build.BuildId) .
+            displayName: "Build Docker Image"
+          - bash: |
+              docker tag $(IMAGE):build-$(Build.BuildId) $(IMAGE):latest
+              docker push $(IMAGE):latest
+              docker push $(IMAGE):build-$(Build.BuildId)
+            displayName: "Push to GHCR"
+
+  - stage: Deploy
+    displayName: "🚀 Deploy"
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: DeployJob
+        steps:
+          - bash: |
+              set -e
+              mkdir -p $(COMPOSE_DIR)/tunnel-dashboard
+              # Copy compose file if exists in repo
+              if [ -f "docker-compose.yml" ]; then
+                cp docker-compose.yml $(COMPOSE_DIR)/tunnel-dashboard/docker-compose.yml
+                echo "✅ docker-compose.yml copied"
+              fi
+            displayName: "Copy docker-compose"
+          - bash: |
+              set -e
+              cd $(COMPOSE_DIR)/tunnel-dashboard
+              docker compose down 2>/dev/null || true
+              docker pull $(IMAGE):latest
+              # Pass env vars from Azure variable groups
+              CF_DNS=$(CF_DNS) \
+              AUTH_PASSWORD=$(TUNNEL_DASHBOARD_AUTH_PASSWORD) \
+              docker compose up -d
+              echo "✅ $(APP_NAME) deployed!"
+            displayName: "Deploy Container"
+          - bash: |
+              sleep 3
+              curl -s -o /dev/null -w "Status: %{http_code}" http://localhost:$(CONTAINER_PORT)/api/health || echo "⚠️ Health check failed (may need ingress)"
+            displayName: "Health Check"

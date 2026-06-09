@@ -1,0 +1,35 @@
+name: devgiglio-tunnel-dashboard
+
+services:
+  tunnel-dashboard:
+    image: ghcr.io/gipierogiglio-prog/tunnel-dashboard:latest
+    container_name: devgiglio-tunnel-dashboard
+    restart: always
+    ports:
+      - "3011:3011"
+    networks:
+      - devgiglio-network
+    volumes:
+      - /root/.ssh/id_rsa:/root/.ssh/id_rsa:ro
+      - /root/.cloudflared/tunnels:/root/.cloudflared/tunnels:ro
+      - tunnel-dashboard-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3011
+      - SSH_HOST=173.249.60.169
+      - SSH_PORT=22
+      - SSH_USER=root
+      - AUTH_USERNAME=admin
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-admin123}
+      - CF_TOKEN=${CF_DNS}
+      - CF_ACCOUNT_ID=37ec01d5489bf05685115dd1c195c512
+      - ZONE_UK=8c5417878f88d14a648711efd68b56e4
+      - ZONE_COM=6f471aee05adb5c7ea5828048b00c734
+      - ZONE_REX=51c0a7b9cbbca5c9923c212c7a75af00
+
+networks:
+  devgiglio-network:
+    external: true
+
+volumes:
+  tunnel-dashboard-data:
