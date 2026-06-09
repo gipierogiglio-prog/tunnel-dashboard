@@ -1,11 +1,36 @@
 const API_BASE = '/api';
-const CREDENTIALS = btoa('admin:admin123');
+
+let _credentials = null;
+
+export function setCredentials(b64credentials) {
+  _credentials = b64credentials;
+  localStorage.setItem('tunnel-auth', b64credentials);
+}
+
+export function loadCredentials() {
+  const saved = localStorage.getItem('tunnel-auth');
+  if (saved) _credentials = saved;
+  return !!_credentials;
+}
+
+export function clearCredentials() {
+  _credentials = null;
+  localStorage.removeItem('tunnel-auth');
+}
+
+export function getCredentials() {
+  return _credentials;
+}
 
 async function request(method, path, body = null) {
+  if (!_credentials) {
+    throw new Error('Not authenticated');
+  }
+
   const opts = {
     method,
     headers: {
-      'Authorization': `Basic ${CREDENTIALS}`,
+      'Authorization': `Basic ${_credentials}`,
       'Content-Type': 'application/json',
     },
   };
@@ -14,6 +39,16 @@ async function request(method, path, body = null) {
   const res = await fetch(`${API_BASE}${path}`, opts);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+// Test credentials by hitting health endpoint
+export async function testAuth(credentials) {
+  const res = await fetch(`${API_BASE}/health`, {
+    headers: { 'Authorization': `Basic ${credentials}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Invalid credentials');
   return data;
 }
 
