@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: tunnel-dashboard
+  description: Dashboard para gerenciamento de tunnels Cloudflare
+  tags:
+    - nodejs
+    - react
+    - infrastructure
+    - cloudflare
+  annotations:
+    github.com/project-slug: gipierogiglio-prog/tunnel-dashboard
+    backstage.io/techdocs-ref: url:https://github.com/gipierogiglio-prog/tunnel-dashboard
+spec:
+  type: website
+  lifecycle: production
+  owner: gian
+  system: devgiglio-infra
