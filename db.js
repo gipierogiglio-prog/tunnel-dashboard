@@ -75,9 +75,18 @@ function getRoutesByTunnel(tunnelId) {
 function createRoute({ tunnelId, hostname, path, service }) {
   const maxRows = query('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM routes WHERE tunnel_id = ?', [tunnelId]);
   const nextOrder = maxRows[0]?.next || 0;
-  execute('INSERT INTO routes (tunnel_id, hostname, path, service, sort_order) VALUES (?, ?, ?, ?, ?)',
+  
+  // Insert via exec (raw sql.js API)
+  db.run('INSERT INTO routes (tunnel_id, hostname, path, service, sort_order) VALUES (?, ?, ?, ?, ?)',
     [tunnelId, hostname, path || '', service, nextOrder]);
-  const id = query('SELECT last_insert_rowid() as id')[0].id;
+  
+  // Get the latest id for this tunnel
+  const idRows = query('SELECT MAX(id) as id FROM routes WHERE tunnel_id = ?', [tunnelId]);
+  const id = idRows[0]?.id;
+  
+  saveDb();
+  
+  if (!id) return null;
   return query('SELECT * FROM routes WHERE id = ?', [id])[0];
 }
 
@@ -96,9 +105,12 @@ function deleteRoute(id) {
 // ─── Apply History ───
 
 function createApplyHistory({ status, message, details }) {
-  execute('INSERT INTO apply_history (status, message, details) VALUES (?, ?, ?)',
+  db.run('INSERT INTO apply_history (status, message, details) VALUES (?, ?, ?)',
     [status, message, details ? JSON.stringify(details) : null]);
-  const id = query('SELECT last_insert_rowid() as id')[0].id;
+  const idRows = query('SELECT MAX(id) as id FROM apply_history');
+  const id = idRows[0]?.id;
+  saveDb();
+  if (!id) return null;
   return query('SELECT * FROM apply_history WHERE id = ?', [id])[0];
 }
 
