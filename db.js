@@ -97,9 +97,10 @@ function updateRoute(id, { hostname, path, service }) {
 }
 
 function deleteRoute(id) {
+  const existing = query('SELECT id FROM routes WHERE id = ?', [id]);
+  if (existing.length === 0) return { changes: 0 };
   execute('DELETE FROM routes WHERE id = ?', [id]);
-  const changes = query('SELECT changes() as c')[0].c;
-  return { changes };
+  return { changes: 1 };
 }
 
 // ─── Apply History ───
