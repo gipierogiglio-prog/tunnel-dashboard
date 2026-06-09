@@ -133,7 +133,21 @@ app.get('/api/tunnels/:id/routes', async (req, res) => {
   }
 });
 
-app.post('/api/routes', (req, res) => {
+// ─── Helper: apply tunnel changes (write config + restart) ───
+
+async function applyTunnelChanges(tunnelId) {
+  const routes = db.getRoutesByTunnel(tunnelId);
+  const target = cf.TUNNEL_TARGET[tunnelId];
+  if (!target) throw new Error(`Unknown tunnel: ${tunnelId}`);
+
+  const newConfig = generateConfig(tunnelId, routes, target);
+  await ssh.writeConfigYml(tunnelId, newConfig);
+  await ssh.restartTunnel(tunnelId);
+}
+
+// ─── Routes CRUD (auto-apply) ───
+
+app.post('/api/routes', async (req, res) => {
   const { tunnelId, hostname, path, service } = req.body;
   if (!tunnelId || !hostname || !service) {
     return res.status(400).json({ error: 'tunnelId, hostname, and service are required' });
@@ -144,13 +158,15 @@ app.post('/api/routes', (req, res) => {
 
   try {
     const route = db.createRoute({ tunnelId, hostname, path, service });
+    await applyTunnelChanges(tunnelId);
     res.status(201).json(route);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Even if apply fails, the route is saved in DB
+    res.status(201).json({ warning: err.message });
   }
 });
 
-app.put('/api/routes/:id', (req, res) => {
+app.put('/api/routes/:id', async (req, res) => {
   const { id } = req.params;
   const { hostname, path, service } = req.body;
 
@@ -159,24 +175,35 @@ app.put('/api/routes/:id', (req, res) => {
     if (!route) {
       return res.status(404).json({ error: 'Route not found' });
     }
+    await applyTunnelChanges(route.tunnel_id);
     res.json(route);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete('/api/routes/:id', (req, res) => {
+app.delete('/api/routes/:id', async (req, res) => {
   const { id } = req.params;
   try {
+    // Get tunnel_id before deleting
+    const routes = db.getRoutesByTunnel('uk').concat(db.getRoutesByTunnel('com'), db.getRoutesByTunnel('rex'));
+    const route = routes.find(r => r.id == id);
+
     const result = db.deleteRoute(id);
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Route not found' });
+    }
+
+    if (route) {
+      await applyTunnelChanges(route.tunnel_id);
     }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ─── Keep old bulk apply for convenience ───
 
 // ─── Apply Changes ───
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getTunnels, getApplyStatus, applyChanges } from '../api'
+import { getTunnels } from '../api'
 
 const TUNNEL_ICONS = { uk: '🏠', com: '🔒', rex: '📈' }
 const STATUS_COLORS = { active: 'bg-green-500', inactive: 'bg-red-500', unknown: 'bg-gray-500' }
@@ -33,8 +33,6 @@ function TunnelCard({ tunnel, onSelect }) {
 
 export default function Dashboard() {
   const [tunnels, setTunnels] = useState([])
-  const [applyStatus, setApplyStatus] = useState(null)
-  const [applying, setApplying] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -44,30 +42,12 @@ export default function Dashboard() {
 
   async function loadData() {
     try {
-      const [tunnelData, statusData] = await Promise.all([
-        getTunnels(),
-        getApplyStatus(),
-      ])
-      setTunnels(tunnelData)
-      setApplyStatus(statusData)
+      const data = await getTunnels()
+      setTunnels(data)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function handleApply() {
-    setApplying(true)
-    try {
-      await applyChanges()
-      // Wait a bit and reload
-      await new Promise(r => setTimeout(r, 3000))
-      await loadData()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setApplying(false)
     }
   }
 
@@ -106,15 +86,8 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Actions */}
+      {/* Refresh */}
       <div className="flex gap-4 mb-8">
-        <button
-          onClick={handleApply}
-          disabled={applying}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-semibold transition-all"
-        >
-          {applying ? '🔄 Aplicando...' : '🔧 Apply Changes'}
-        </button>
         <button
           onClick={loadData}
           className="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition-all"
@@ -122,23 +95,6 @@ export default function Dashboard() {
           🔄 Refresh
         </button>
       </div>
-
-      {/* Last Apply Status */}
-      {applyStatus?.last && (
-        <div className={`rounded-xl border p-4 ${
-          applyStatus.last.status === 'success'
-            ? 'bg-green-900/30 border-green-800'
-            : applyStatus.last.status === 'failed'
-            ? 'bg-red-900/30 border-red-800'
-            : 'bg-yellow-900/30 border-yellow-800'
-        }`}>
-          <h3 className="font-semibold mb-1">Última aplicação</h3>
-          <p className="text-sm text-gray-300">{applyStatus.last.message}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {applyStatus.last.created_at}
-          </p>
-        </div>
-      )}
     </div>
   )
 }

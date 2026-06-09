@@ -168,10 +168,11 @@ export default function IngressEditor() {
     try {
       await createRoute({ tunnelId: selectedTunnel, ...data })
       setShowModal(false)
-      showNotification('✅ Rota adicionada com sucesso!')
+      showNotification('✅ Rota adicionada! Tunnel reiniciado com sucesso.')
       loadRoutes()
     } catch (err) {
-      showNotification(`❌ ${err.message}`, true)
+      showNotification(`⚠️ Rota salva, mas erro ao reiniciar tunnel: ${err.message}`, true)
+      loadRoutes()
     }
   }
 
@@ -180,7 +181,7 @@ export default function IngressEditor() {
       await updateRoute(editingRoute.id, data)
       setEditingRoute(null)
       setShowModal(false)
-      showNotification('✅ Rota atualizada!')
+      showNotification('✅ Rota atualizada! Tunnel reiniciado.')
       loadRoutes()
     } catch (err) {
       showNotification(`❌ ${err.message}`, true)
@@ -191,7 +192,7 @@ export default function IngressEditor() {
     if (!confirm('Tem certeza que quer excluir esta rota?')) return
     try {
       await deleteRoute(id)
-      showNotification('🗑️ Rota excluída!')
+      showNotification('🗑️ Rota excluída! Tunnel reiniciado.')
       loadRoutes()
     } catch (err) {
       showNotification(`❌ ${err.message}`, true)
