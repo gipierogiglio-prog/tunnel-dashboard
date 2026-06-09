@@ -98,20 +98,38 @@ app.get('/api/tunnels/:id', async (req, res) => {
 app.get('/api/tunnels/:id/routes', async (req, res) => {
   const { id } = req.params;
   try {
-    // Get routes from DB
+    // Try to read routes from config.yml (source of truth)
+    const config = await ssh.readConfigYml(id);
+    const configRoutes = parseConfig(config).filter(r => r.service !== 'http_status:404');
+
+    // Get routes from DB (may be empty on first load)
     const dbRoutes = db.getRoutesByTunnel(id);
 
-    // Try to get current config for comparison
-    try {
-      const config = await ssh.readConfigYml(id);
-      const enriched = mergeRoutesWithConfig(config, dbRoutes);
-      return res.json(enriched);
-    } catch {
-      // If SSH fails, return DB routes as-is
-      return res.json(dbRoutes);
+    // If DB is empty, auto-populate from config.yml
+    if (dbRoutes.length === 0 && configRoutes.length > 0) {
+      for (const r of configRoutes) {
+        db.createRoute({
+          tunnelId: id,
+          hostname: r.hostname,
+          path: r.path,
+          service: r.service,
+        });
+      }
+      // Now re-read from DB
+      return res.json(db.getRoutesByTunnel(id));
     }
+
+    // If DB has routes, enrich with config.yml status
+    const enriched = mergeRoutesWithConfig(config, dbRoutes);
+    return res.json(enriched);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // If SSH fails, fall back to DB
+    try {
+      const dbRoutes = db.getRoutesByTunnel(id);
+      return res.json(dbRoutes);
+    } catch {
+      res.status(500).json({ error: err.message });
+    }
   }
 });
 
