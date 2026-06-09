@@ -34,4 +34,7 @@ RUN mkdir -p /app/data
 
 EXPOSE 3011
 
-CMD ["node", "server.js"]
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

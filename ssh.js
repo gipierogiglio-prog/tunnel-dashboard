@@ -3,17 +3,28 @@ const fs = require('fs');
 const path = require('path');
 
 function getSshConfig() {
-  const keyPath = process.env.SSH_KEY || path.join(process.env.HOME || '/root', '.ssh/id_rsa');
+  // Try SSH_KEY env var first, then /tmp/id_rsa (entrypoint copy), then default locations
+  const keyPath = process.env.SSH_KEY 
+    || '/tmp/id_rsa'
+    || path.join(process.env.HOME || '/root', '.ssh/id_rsa');
   let privateKey;
   try {
     privateKey = fs.readFileSync(keyPath, 'utf8');
   } catch {
     // Try alternative locations
-    const altPath = path.join('/home/node/.ssh/id_rsa');
-    try {
-      privateKey = fs.readFileSync(altPath, 'utf8');
-    } catch {
-      throw new Error(`SSH key not found at ${keyPath} or ${altPath}`);
+    const altPaths = [
+      '/tmp/id_rsa',
+      path.join('/home/node/.ssh/id_rsa'),
+      path.join(process.env.HOME || '/root', '.ssh/id_rsa'),
+    ];
+    for (const p of altPaths) {
+      try {
+        privateKey = fs.readFileSync(p, 'utf8');
+        break;
+      } catch {}
+    }
+    if (!privateKey) {
+      throw new Error(`SSH key not found in any location`);
     }
   }
 
