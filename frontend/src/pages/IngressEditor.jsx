@@ -12,17 +12,29 @@ const TUNNEL_INFO = {
 const TUNNEL_KEYS = ['uk', 'com', 'rex']
 
 function RouteForm({ route, tunnelDomain, onSubmit, onCancel }) {
-  const [hostname, setHostname] = useState(route?.hostname || '')
+  // Strip domain from existing route for editing
+  const initialHostname = route?.hostname && tunnelDomain && route.hostname.endsWith(`.${tunnelDomain}`)
+    ? route.hostname.slice(0, -`.${tunnelDomain}`.length)
+    : route?.hostname || ''
+  const [hostname, setHostname] = useState(initialHostname)
   const [path, setPath] = useState(route?.path || '')
   const [service, setService] = useState(route?.service || '')
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!hostname || !service) return
-    onSubmit({ hostname, path, service })
+    // Append domain if not already present
+    const fullHostname = tunnelDomain && !hostname.endsWith(`.${tunnelDomain}`)
+      ? `${hostname}.${tunnelDomain}`
+      : hostname
+    onSubmit({ hostname: fullHostname, path, service })
   }
 
-  const fullDomain = hostname ? `${hostname}.${tunnelDomain}` : ''
+  // Strip domain from hostname if present (for editing existing routes)
+  const shortHostname = hostname && tunnelDomain && hostname.endsWith(`.${tunnelDomain}`)
+    ? hostname.slice(0, -`.${tunnelDomain}`.length)
+    : hostname
+  const fullDomain = shortHostname ? `${shortHostname}.${tunnelDomain}` : ''
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -31,14 +43,14 @@ function RouteForm({ route, tunnelDomain, onSubmit, onCancel }) {
         <div className="flex items-center gap-1">
           <input
             type="text"
-            value={hostname}
+            value={shortHostname}
             onChange={e => setHostname(e.target.value)}
             placeholder="subdominio"
             className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
           />
           <span className="text-gray-500 text-sm">.{tunnelDomain}</span>
         </div>
-        {hostname && (
+        {shortHostname && (
           <p className="text-xs text-gray-500 mt-1">→ {fullDomain}</p>
         )}
       </div>
@@ -89,14 +101,10 @@ function RouteForm({ route, tunnelDomain, onSubmit, onCancel }) {
 }
 
 function RouteRow({ route, tunnelDomain, onEdit, onDelete }) {
-  const fullDomain = route.hostname
-    ? `${route.hostname}.${tunnelDomain}`
-    : route.hostname
-
   return (
     <tr className="border-b border-gray-800 hover:bg-gray-800/50">
       <td className="py-3 px-4">
-        <code className="text-sm text-blue-300">{fullDomain}</code>
+        <code className="text-sm text-blue-300">{route.hostname}</code>
         {route.path && (
           <span className="text-sm text-gray-500 ml-2">{route.path}</span>
         )}
