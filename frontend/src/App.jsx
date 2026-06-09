@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
 import { setCredentials, loadCredentials, clearCredentials, getCredentials } from './api'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -68,12 +68,11 @@ function AppLayout({ onLogout }) {
   )
 }
 
-export default function App() {
+function AppContent() {
   const [authenticated, setAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Try to restore session
     if (loadCredentials()) {
       setAuthenticated(true)
     }
@@ -103,4 +102,12 @@ export default function App() {
   }
 
   return <AppLayout onLogout={handleLogout} />
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  )
 }
